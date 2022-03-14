@@ -1,0 +1,275 @@
+[[build_docker]]
+= Getting Started Building Docker Images with Gradle
+
+We live in a world buzzing full of cloud-native applications. Containerization has become a part and parcel of delivering software. What we need to provide for is an easy way to deploy an application–what better way than Docker images? Fortunately for us, Gradle & the `gradle-docker-plugin` can significantly help with this task.
+
+== What you'll build
+
+* A sample Docker image that you can additionally opt to push to the Docker registry.
+
+== What you'll need
+
+* A text editor
+* A command prompt
+* The Java Development Kit (JDK), version 1.8 or higher
+* A https://gradle.org/install[Gradle distribution], version 5.2 or better
+* https://www.docker.com/[Docker]
+* https://bmuschko.github.io/gradle-docker-plugin/current/user-guide/[Gradle Docker Plugin]
+
+== Create a project folder
+
+The first step is to create a folder for the new project and change directory into it.
+
+[listing.terminal.sample-command]
+----
+$ mkdir docker
+$ cd docker
+----
+
+== Run the Init Task
+
+From inside the new project directory, run the init task using the `gradle init` command in the terminal.
+
+[listing.terminal.sample-command]
+----
+$ gradle init
+
+Select type of project to generate:
+  1: basic
+  2: application
+  3: library
+  4: Gradle plugin
+Enter selection (default: basic) [1..4] 2
+
+Select implementation language:
+  1: C++
+  2: Groovy
+  3: Java
+  4: Kotlin
+  5: Scala
+  6: Swift
+Enter selection (default: Java) [1..6] 3
+
+Split functionality across multiple subprojects?:
+  1: no - only one application project
+  2: yes - application and library projects
+Enter selection (default: no - only one application project) [1..2] 1
+
+Select build script DSL:
+  1: Groovy
+  2: Kotlin
+Enter selection (default: Groovy) [1..2] 1
+
+Generate build using new APIs and behavior (some features may change in the next minor release)? (default: no) [yes, no] 
+Select test framework:
+  1: JUnit 4
+  2: TestNG
+  3: Spock
+  4: JUnit Jupiter
+Enter selection (default: JUnit Jupiter) [1..4] 1
+
+Project name (default: docker): 
+Source package (default: docker..java): 
+
+> Task :init
+Get more help with your project: https://docs.gradle.org/7.4.1/samples/sample_building_java_applications.html
+
+BUILD SUCCESSFUL in 29s
+2 actionable tasks: 2 executed
+----
+
+The init task generates the new project with the following structure:
+
+----
+docker
+├── gradle 
+│   └── wrapper
+│       ├── gradle-wrapper.jar
+│       └── gradle-wrapper.properties
+├── app
+|   ├── build.gradle 
+│   └── src
+│       └── main
+|       |   └── java
+|       |       └── App.java
+|       ├── test
+|       |   └── java
+|       |       └── AppTest.java
+│       └── gradle-wrapper.properties
+├── gradlew 
+├── gradlew.bat
+└── settings.gradle 
+
+----
+
+1. Generated folder for wrapper files
+2. Gradle wrapper start scripts
+3. Settings file to define build name and subprojects
+4. Build script of lib project
+5. ./app folder containing the Java application
+
+== Build the project
+
+To build the project, we levy the `build` command.
+
+[listing.terminal.sample-command]
+----
+$ ./gradlew build
+
+BUILD SUCCESSFUL
+7 actionable tasks: 7 executed
+----
+
+The project provides the <<gradle_wrapper.adoc#gradle_wrapper,Gradle Wrapper>> as part of the repository.
+It is a recommended practice for any Gradle project as it enables your project to built on CI without having to install the Gradle runtime.
+
+[listing.terminal.sample-command]
+----
+$ ./gradlew build --scan
+Publishing build scan...
+https://gradle.com/s/xxxxxxx
+----
+
+
+== Add a plugin entry to build.gradle
+
+We make use of the 'docker-java-application' plugin here to carry out the essential task of building the Docker image.
+
+----
+
+plugins {
+    id 'application'
+
+    id 'java'
+    id 'com.bmuschko.docker-java-application' version '7.3.0'
+    // mentioning a compatible version is a must
+}
+
+----
+
+== Run Gradle tasks command
+
+With this command, gradle picks up the tasks related to Docker. We can verify the same by running the `tasks` task of the gradle wrapper.
+
+[listing.terminal]
+----
+
+❯ ./gradlew tasks
+
+> Task :tasks
+
+------------------------------------------------------------
+Tasks runnable from root project 'docker'
+------------------------------------------------------------
+
+...
+
+Docker tasks
+------------
+dockerBuildImage - Builds the Docker image for the application.
+dockerCreateDockerfile - Creates the Docker image for the application.
+dockerPushImage - Pushes created Docker image to the repository.
+dockerSyncBuildContext - Copies the distribution resources to a temporary directory for image creation.
+
+...
+
+[listing.terminal]
+----
+
+== Generating a Dockerfile (optional)
+
+As an optional step, we can generate and inspect the Dockerfile which is generated on levying the `dockerCreateDockerfile` command:
+
+----
+FROM openjdk:11-jre-slim
+LABEL maintainer=codespace
+WORKDIR /app
+COPY libs libs/
+COPY classes classes/
+ENTRYPOINT ["java", "-cp", "/app/resources:/app/classes:/app/libs/*", "docker.java.App"]
+EXPOSE 8080
+----
+
+== Building the Docker image
+
+To build the Docker image, we carry out the `dockerBuildImage` task. This step will auto-generate the Dockerfile and create the image for us.
+
+[listing.terminal]
+----
+$ ./gradlew dockerBuildImage
+
+> Task :app:dockerBuildImage
+Building image using context '/workspaces/testing-gradle/app/build/docker'.
+Using images 'docker-getting-started-gradle-java/app:latest'.
+Step 1/7 : FROM openjdk:11-jre-slim
+ ---> d3b5993fad1f
+Step 2/7 : LABEL maintainer=codespace
+ ---> Running in 4c9a751ea6c1
+Removing intermediate container 4c9a751ea6c1
+ ---> 3d951b688e90
+Step 3/7 : WORKDIR /app
+ ---> Running in ede4f9b275d8
+Removing intermediate container ede4f9b275d8
+ ---> cddca74203de
+Step 4/7 : COPY libs libs/
+ ---> fca50e87d768
+Step 5/7 : COPY classes classes/
+ ---> 5a91c294d8d2
+Step 6/7 : ENTRYPOINT ["java", "-cp", "/app/resources:/app/classes:/app/libs/*", "docker.java.App"]
+ ---> Running in d1c53fba1df3
+Removing intermediate container d1c53fba1df3
+ ---> b7ef69af5fd3
+Step 7/7 : EXPOSE 8080
+ ---> Running in 07e2d60733b2
+Removing intermediate container 07e2d60733b2
+ ---> f9d090080e8a
+Successfully built f9d090080e8a
+Successfully tagged docker/app:latest
+Created image with ID 'f9d090080e8a'.
+----
+
+== Run the Docker image
+
+The generated Docker image can be run via the Docker CLI command `docker run` by providing the image ID.
+
+[listing.terminal]
+----
+$ docker run --rm f9d090080e8a
+Hello World!
+----
+
+== Push the Docker image to registry (optional)
+
+We can also opt to push to a registry of our choice by levying the `dockerPushImage` command.
+
+== Summary
+
+That’s it! You’ve successfully built & run a Docker image with the help of the `gradle-docker-plugin`. You’ve learned how to:
+
+* Initialize a project that produces a Java application
+* Run the build and view the test report
+* Install the `gradle-docker-plugin`
+* Run the Gradle tasks command to verify
+* Generate the Dockerfile
+* Build the Docker image
+* Run the Docker image
+* Push the Docker image to a registry
+
+
+== Further reading
+
+You can learn more about advanced Docker usage through these resources:
+
+* https://dockerlabs.collabnix.com/docker/cheatsheet/[The  Ultimate Docker Cheat Sheet]
+* https://docs.docker.com/engine/reference/run/[Docker Run Reference]
+* https://docs.docker.com/get-started/[Getting Started with Docker]
+* https://aws.amazon.com/docker/[What is Docker?]
+* https://www.docker.com/resources/what-container[Containerisation & Docker]
+
+== Next steps
+
+Building a Docker image may seem like a trivial task, but for advanced use cases you can check out:
+
+* https://bmuschko.github.io/gradle-docker-plugin/#provided_plugins[Provided plugins by gradle-docker-plugin]
+* https://mvnrepository.com/artifact/com.bmuschko/gradle-docker-plugin[gradle-docker-plugin artifact]
+* https://github.com/palantir/gradle-docker[Palantir plugin]

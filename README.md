@@ -1,2 +1,3 @@
 # getting-started-building-docker-images-with-gradle-sample
-Getting Started Building Docker Images with Gradle
+
+A simple user guide to getting started building Docker images with Gradle.
